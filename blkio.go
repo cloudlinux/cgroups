@@ -152,18 +152,32 @@ func (b *blkioController) Stat(path string, stats *v1.Metrics) error {
 		return nil
 	}
 
-	// Even the kernel is compiled with the CFQ scheduler, the cgroup may not use
-	// block devices with the CFQ scheduler. If so, we should fallback to throttle.* files.
-	settings = []blkioStatSettings{
-		{
-			name:  "throttle.io_serviced",
-			entry: &stats.Blkio.IoServicedRecursive,
-		},
-		{
-			name:  "throttle.io_service_bytes",
-			entry: &stats.Blkio.IoServiceBytesRecursive,
-		},
+	if _, err := os.Lstat(filepath.Join(b.Path(path), "blkio.throttle.io_serviced_recursive")); err == nil {
+		settings = []blkioStatSettings{
+			{
+				name:  "throttle.io_serviced_recursive",
+				entry: &stats.Blkio.IoServicedRecursive,
+			},
+			{
+				name:  "throttle.io_service_bytes_recursive",
+				entry: &stats.Blkio.IoServiceBytesRecursive,
+			},
+		}
+	} else {
+		// Even the kernel is compiled with the CFQ scheduler, the cgroup may not use
+		// block devices with the CFQ scheduler. If so, we should fallback to throttle.* files.
+		settings = []blkioStatSettings{
+			{
+				name:  "throttle.io_serviced",
+				entry: &stats.Blkio.IoServicedRecursive,
+			},
+			{
+				name:  "throttle.io_service_bytes",
+				entry: &stats.Blkio.IoServiceBytesRecursive,
+			},
+		}
 	}
+
 	for _, t := range settings {
 		if err := b.readEntry(devices, path, t.name, t.entry); err != nil {
 			return err
